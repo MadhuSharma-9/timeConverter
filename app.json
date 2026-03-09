@@ -1,29 +1,289 @@
-{
-  "expo": {
-    "name": "NepaliAgeCalc",
-    "slug": "NepaliAgeCalc",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
+import React, { useState } from 'react';
+import { 
+  StyleSheet, Text, View, TouchableOpacity, 
+  SafeAreaView, ScrollView, Alert, StatusBar,
+  Animated, Platform
+} from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import { CalendarPicker } from 'react-native-nepali-picker';
+import { calculateAge } from '@sbmdkl/nepali-date-converter';
+import i18n from 'i18next';
+import { initReactI18next, useTranslation } from 'react-i18next';
+
+// --- 1. LOCALIZATION CONFIG ---
+const resources = {
+  en: {
+    translation: {
+      title: "Age Calculator",
+      subtitle: "Bikram Sambat",
+      district: "District",
+      dob: "Date of Birth (BS)",
+      campaign: "Campaign Date",
+      calculate: "Calculate Age",
+      result_title: "Age Result",
+      years: "Years",
+      months: "Months",
+      days: "Days",
+      select_prompt: "Tap to select date",
+      error_dob: "Please select a Date of Birth first",
+      as_of: "As of campaign date"
+    }
+  },
+  ne: {
+    translation: {
+      title: "उमेर क्यालकुलेटर",
+      subtitle: "विक्रम सम्बत",
+      district: "जिल्ला",
+      dob: "जन्म मिति (वि.सं.)",
+      campaign: "अभियान मिति",
+      calculate: "उमेर गणना गर्नुहोस्",
+      result_title: "उमेर परिणाम",
+      years: "वर्ष",
+      months: "महिना",
+      days: "दिन",
+      select_prompt: "मिति छान्न थिच्नुहोस्",
+      error_dob: "कृपया पहिले जन्म मिति चयन गर्नुहोस्",
+      as_of: "अभियान मितिमा"
     }
   }
+};
+
+i18n.use(initReactI18next).init({
+  resources,
+  lng: 'ne',
+  fallbackLng: 'en',
+  interpolation: { escapeValue: false }
+});
+
+// --- 2. DATA & UTILS ---
+const districtData = [
+  { id: 1, nameEn: "Kathmandu", nameNe: "काठमाडौं", campaignDate: "2080-12-01" },
+  { id: 2, nameEn: "Jhapa",     nameNe: "झापा",     campaignDate: "2080-12-05" },
+  { id: 3, nameEn: "Morang",    nameNe: "मोरङ",     campaignDate: "2081-01-10" },
+  { id: 4, nameEn: "Kaski",     nameNe: "कास्की",   campaignDate: "2081-02-15" },
+];
+
+const toNepaliDigits = (num, lang) => {
+  if (lang !== 'ne') return String(num);
+  const digits = { '0':'०','1':'१','2':'२','3':'३','4':'४','5':'५','6':'६','7':'७','8':'८','9':'९' };
+  return String(num).split('').map(d => digits[d] || d).join('');
+};
+
+// --- 3. THEME ---
+const C = {
+  bg:         '#0A0A0A',
+  surface:    '#141414',
+  surfaceHi:  '#1E1E1E',
+  border:     '#2A2A2A',
+  accent:     '#E8FF47',   // sharp lime-yellow
+  accentDim:  '#B8CC38',
+  white:      '#F5F5F5',
+  muted:      '#666666',
+  danger:     '#FF453A',
+};
+
+// --- 4. MAIN COMPONENT ---
+export default function App() {
+  const { t, i18n } = useTranslation();
+  const [selectedId, setSelectedId]   = useState(1);
+  const [dob, setDob]                 = useState('');
+  const [ageResult, setAgeResult]     = useState(null);
+  const [showPicker, setShowPicker]   = useState(false);
+
+  const selectedDistrict = districtData.find(d => d.id === selectedId) || districtData[0];
+  const lang = i18n.language;
+
+  const handleCalculate = () => {
+    if (!dob) {
+      Alert.alert("!", t('error_dob'));
+      return;
+    }
+    try {
+      const result = calculateAge(dob, selectedDistrict.campaignDate);
+      setAgeResult(result);
+    } catch (e) {
+      Alert.alert("Error", "Invalid date format. Please re-select your DOB.");
+    }
+  };
+
+  return (
+    <SafeAreaView style={s.safe}>
+      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* ── HEADER ── */}
+        <View style={s.header}>
+          <View>
+            <Text style={s.titleSmall}>{t('subtitle')}</Text>
+            <Text style={s.title}>{t('title')}</Text>
+          </View>
+          <TouchableOpacity
+            style={s.langPill}
+            onPress={() => { i18n.changeLanguage(lang === 'en' ? 'ne' : 'en'); setAgeResult(null); }}
+            activeOpacity={0.7}
+          >
+            <Text style={s.langPillText}>{lang === 'en' ? 'नेपाली' : 'EN'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── DISTRICT CARD ── */}
+        <View style={s.card}>
+          <Text style={s.fieldLabel}>{t('district')}</Text>
+          <View style={s.pickerBox}>
+            <Picker
+              selectedValue={selectedId}
+              onValueChange={(val) => { setSelectedId(val); setAgeResult(null); }}
+              style={{ color: C.white }}
+              dropdownIconColor={C.muted}
+              itemStyle={{ color: C.white, backgroundColor: C.surfaceHi }}
+            >
+              {districtData.map(d => (
+                <Picker.Item
+                  key={d.id}
+                  label={lang === 'en' ? d.nameEn : d.nameNe}
+                  value={d.id}
+                />
+              ))}
+            </Picker>
+          </View>
+
+          {/* Campaign date badge */}
+          <View style={s.campaignRow}>
+            <View style={s.dot} />
+            <Text style={s.campaignLabel}>{t('campaign')}:</Text>
+            <Text style={s.campaignDate}>
+              {toNepaliDigits(selectedDistrict.campaignDate, lang)}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── DOB CARD ── */}
+        <View style={s.card}>
+          <Text style={s.fieldLabel}>{t('dob')}</Text>
+          <TouchableOpacity
+            style={[s.dateBtn, dob ? s.dateBtnFilled : null]}
+            onPress={() => setShowPicker(true)}
+            activeOpacity={0.75}
+          >
+            {dob ? (
+              <Text style={s.dateBtnValueText}>
+                {toNepaliDigits(dob, lang)}
+              </Text>
+            ) : (
+              <Text style={s.dateBtnPlaceholder}>{t('select_prompt')}</Text>
+            )}
+            <Text style={s.calIcon}>📅</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── CALCULATE BUTTON ── */}
+        <TouchableOpacity style={s.calcBtn} onPress={handleCalculate} activeOpacity={0.85}>
+          <Text style={s.calcBtnText}>{t('calculate')}</Text>
+        </TouchableOpacity>
+
+        {/* ── RESULT CARD ── */}
+        {ageResult && (
+          <View style={s.resultCard}>
+            {/* Accent bar */}
+            <View style={s.resultAccentBar} />
+
+            <Text style={s.resultTitle}>{t('result_title')}</Text>
+            <Text style={s.resultSubtitle}>
+              {t('as_of')}{' '}
+              <Text style={{ color: C.accent }}>
+                {toNepaliDigits(selectedDistrict.campaignDate, lang)}
+              </Text>
+            </Text>
+
+            <View style={s.resultRow}>
+              <ResultBox value={ageResult.years}  label={t('years')}  lang={lang} accent />
+              <View style={s.divider} />
+              <ResultBox value={ageResult.months} label={t('months')} lang={lang} />
+              <View style={s.divider} />
+              <ResultBox value={ageResult.days}   label={t('days')}   lang={lang} />
+            </View>
+
+            {/* DOB echo */}
+            <View style={s.dobEcho}>
+              <Text style={s.dobEchoLabel}>{t('dob')}</Text>
+              <Text style={s.dobEchoValue}>{toNepaliDigits(dob, lang)}</Text>
+            </View>
+          </View>
+        )}
+
+        {/* ── NEPALI CALENDAR PICKER ── */}
+        <CalendarPicker
+          visible={showPicker}
+          onClose={() => setShowPicker(false)}
+          onDateSelect={(date) => { setDob(date); setAgeResult(null); setShowPicker(false); }}
+          language={lang}
+        />
+
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
+
+// Sub-component
+const ResultBox = ({ value, label, lang, accent }) => (
+  <View style={s.rBox}>
+    <Text style={[s.rBoxValue, accent && { color: C.accent }]}>
+      {toNepaliDigits(value ?? 0, lang)}
+    </Text>
+    <Text style={s.rBoxLabel}>{label}</Text>
+  </View>
+);
+
+// --- 5. STYLES ---
+const s = StyleSheet.create({
+  safe:   { flex: 1, backgroundColor: C.bg },
+  scroll: { padding: 22, paddingBottom: 48 },
+
+  // Header
+  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28, marginTop: 8 },
+  titleSmall:  { fontSize: 11, color: C.muted, letterSpacing: 3, textTransform: 'uppercase', marginBottom: 4 },
+  title:       { fontSize: 28, fontWeight: '800', color: C.white, letterSpacing: -0.5 },
+  langPill:    { backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: C.border, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  langPillText:{ color: C.accent, fontWeight: '700', fontSize: 13 },
+
+  // Card
+  card:         { backgroundColor: C.surface, borderRadius: 16, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: C.border },
+  fieldLabel:   { fontSize: 11, color: C.muted, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 10, fontWeight: '600' },
+
+  // Picker
+  pickerBox:    { backgroundColor: C.surfaceHi, borderRadius: 10, marginBottom: 14, overflow: 'hidden' },
+
+  // Campaign row
+  campaignRow:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot:          { width: 6, height: 6, borderRadius: 3, backgroundColor: C.accent },
+  campaignLabel:{ fontSize: 12, color: C.muted },
+  campaignDate: { fontSize: 13, color: C.white, fontWeight: '700', marginLeft: 2 },
+
+  // Date button
+  dateBtn:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.surfaceHi, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: C.border },
+  dateBtnFilled: { borderColor: C.accent + '55' },
+  dateBtnValueText: { fontSize: 20, color: C.accent, fontWeight: '700', letterSpacing: 0.5 },
+  dateBtnPlaceholder: { fontSize: 15, color: C.muted },
+  calIcon: { fontSize: 20 },
+
+  // Calc button
+  calcBtn:     { backgroundColor: C.accent, borderRadius: 14, padding: 18, alignItems: 'center', marginVertical: 8 },
+  calcBtnText: { color: '#000', fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
+
+  // Result card
+  resultCard:       { backgroundColor: C.surface, borderRadius: 20, padding: 22, marginTop: 10, borderWidth: 1, borderColor: C.border, overflow: 'hidden' },
+  resultAccentBar:  { position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: C.accent, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  resultTitle:      { textAlign: 'center', fontSize: 12, color: C.muted, letterSpacing: 2, textTransform: 'uppercase', marginTop: 6, marginBottom: 4 },
+  resultSubtitle:   { textAlign: 'center', fontSize: 12, color: C.muted, marginBottom: 20 },
+  resultRow:        { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginBottom: 20 },
+  divider:          { width: 1, height: 50, backgroundColor: C.border },
+
+  rBox:       { flex: 1, alignItems: 'center' },
+  rBoxValue:  { fontSize: 38, fontWeight: '900', color: C.white, letterSpacing: -1 },
+  rBoxLabel:  { fontSize: 12, color: C.muted, marginTop: 4, letterSpacing: 1, textTransform: 'uppercase' },
+
+  // DOB echo at bottom of result
+  dobEcho:      { backgroundColor: C.surfaceHi, borderRadius: 10, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dobEchoLabel: { fontSize: 11, color: C.muted, letterSpacing: 1.5, textTransform: 'uppercase' },
+  dobEchoValue: { fontSize: 14, color: C.white, fontWeight: '700' },
+});
