@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "time",
+    "name": "Anweshan Time Converter",
     "slug": "time",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,7 +17,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.madhusharma9.time"
     },
     "web": {
       "output": "static",
@@ -39,6 +40,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "24aa7907-4e1e-43a2-85f6-e829c51ca2cc"
+      }
     }
   }
 }
